@@ -2,9 +2,15 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from './../src/app.module';
+import { GraphQLModule } from '@nestjs/graphql';
+import { UsersModule } from '../src/users/users.module';
+import { MongooseModule } from '@nestjs/mongoose';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import mongoose from 'mongoose';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
+  let mongod: MongoMemoryServer;
 
   const userObject = {
     name: 'any_name',
@@ -15,7 +21,7 @@ describe('AppController (e2e)', () => {
     return `
     mutation {
       createUser(createUserData: {name: "${userObject.name}", email: "${userObject.email}"}) {
-        userId
+        _id
         email
         name
       }
@@ -26,7 +32,7 @@ describe('AppController (e2e)', () => {
     return `
       query {
         getUsers {
-          userId
+          _id
           email
           name
         }
@@ -37,8 +43,8 @@ describe('AppController (e2e)', () => {
   const updateUserQuery = (userId, newName) => {
     return `
       mutation {
-        updateUser(updateUserData: { userId: "${userId}", name: "${newName}" }) {
-        userId
+        updateUser(id: "${userId}", updateUserData: { name: "${newName}" }) {
+        _id
         email
         name
       }
@@ -47,8 +53,19 @@ describe('AppController (e2e)', () => {
   };
 
   beforeEach(async () => {
+    mongod = new MongoMemoryServer();
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [
+        GraphQLModule.forRoot({
+          autoSchemaFile: true,
+        }),
+        UsersModule,
+        MongooseModule.forRootAsync({
+          useFactory: async () => ({
+            uri: await mongod.getUri(),
+          }),
+        }),
+      ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -57,6 +74,8 @@ describe('AppController (e2e)', () => {
 
   afterEach(async () => {
     await app.close();
+    if (mongoose) await mongoose.disconnect();
+    await mongod.stop();
   });
 
   it('should create a user', () => {
@@ -109,13 +128,13 @@ describe('AppController (e2e)', () => {
       query: createUserQuery(),
     });
 
-    const { userId, name } = result.body.data.createUser;
+    const { _id, name } = result.body.data.createUser;
     const newName = name + '_new_name';
 
     return request(app.getHttpServer())
       .post('/graphql')
       .send({
-        query: updateUserQuery(userId, newName),
+        query: updateUserQuery(_id, newName),
       })
       .expect(({ body }) => {
         expect(newName).toBe(body.data.updateUser.name);

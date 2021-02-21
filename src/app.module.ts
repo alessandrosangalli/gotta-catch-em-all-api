@@ -6,7 +6,7 @@ import { UsersModule } from './users/users.module';
 const HOST = process.env.HOST;
 const PORT = process.env.PORT;
 
-const url = `mongodb://${HOST}:${PORT}/teste`;
+const url = `mongodb://${HOST}:${PORT}/gotta-catch-em-all`;
 
 @Module({
   imports: [

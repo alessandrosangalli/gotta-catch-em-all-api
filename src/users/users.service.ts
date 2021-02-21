@@ -19,9 +19,13 @@ export class UsersService {
     id: string,
     updateUserData: UpdateUserInput,
   ): Promise<User> {
-    return await this.userModel.findByIdAndUpdate(id, {
-      ...updateUserData,
-    });
+    return await this.userModel.findOneAndUpdate(
+      { _id: id },
+      {
+        ...updateUserData,
+      },
+      { new: true },
+    );
   }
 
   public async getUsers(): Promise<User[]> {
