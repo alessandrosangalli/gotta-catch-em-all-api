@@ -1,35 +1,30 @@
 import { Injectable } from '@nestjs/common';
-import { CreateUserInput } from './dto/input/create-user-input';
-import { User } from './models/user';
-import { v4 as uuidv4 } from 'uuid';
-import { UpdateUserInput } from './dto/input/update-user-input';
+import { CreateUserInput } from './dto/create-user-input';
+import { User } from '../users/interfaces/user.interface';
+import { UpdateUserInput } from './dto/update-user-input';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 
 @Injectable()
 export class UsersService {
+  constructor(@InjectModel('User') private readonly userModel: Model<User>) { }
   private users: User[] = [];
 
-  public createUser(createUserData: CreateUserInput): User {
-    const user: User = {
-      userId: uuidv4(),
-      ...createUserData,
-    };
-
-    this.users.push(user);
-
-    return user;
+  public async createUser(createUserData: CreateUserInput): Promise<User> {
+    const createdUser = new this.userModel(createUserData);
+    return await createdUser.save();
   }
 
-  public updateUser(updateUserData: UpdateUserInput): User {
-    const user = this.users.find(
-      (user) => user.userId === updateUserData.userId,
-    );
-
-    Object.assign(user, updateUserData);
-
-    return user;
+  public async updateUser(
+    id: string,
+    updateUserData: UpdateUserInput,
+  ): Promise<User> {
+    return await this.userModel.findByIdAndUpdate(id, {
+      ...updateUserData,
+    });
   }
 
-  public getUsers(): User[] {
-    return this.users;
+  public async getUsers(): Promise<User[]> {
+    return await this.userModel.find().exec();
   }
 }
