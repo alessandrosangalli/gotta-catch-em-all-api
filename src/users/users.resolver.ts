@@ -27,4 +27,9 @@ export class UsersResolver {
   ): Promise<User> {
     return this.usersService.updateUser(id, updateUserData);
   }
+
+  @Query(() => User, { name: 'getUser' })
+  async getUser(@Args('email') email: string): Promise<User> {
+    return await this.usersService.getUser(email);
+  }
 }
