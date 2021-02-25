@@ -3,8 +3,8 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from './users/users.module';
 
-const HOST = process.env.HOST;
-const PORT = process.env.PORT;
+const HOST = process.env.HOST || 'localhost';
+const PORT = process.env.PORT || '27017';
 
 const url = `mongodb://${HOST}:${PORT}/gotta-catch-em-all`;
 

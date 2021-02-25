@@ -15,12 +15,13 @@ describe('AppController (e2e)', () => {
   const userObject = {
     name: 'any_name',
     email: 'any_email@email.com',
+    password: 'any_password',
   };
 
   const createUserQuery = () => {
     return `
     mutation {
-      createUser(createUserData: {name: "${userObject.name}", email: "${userObject.email}"}) {
+      createUser(createUserData: {name: "${userObject.name}", email: "${userObject.email}", password: "${userObject.password}"}) {
         _id
         email
         name
@@ -52,6 +53,24 @@ describe('AppController (e2e)', () => {
     `;
   };
 
+  const loginQuery = () => {
+    return `
+      mutation {
+        login (loginInput: { email: "${userObject.email}", password: "${userObject.password}"}) {
+          token
+        }
+      }
+    `;
+  };
+
+  const authorizeQuery = () => {
+    return `query {
+      me {
+        email
+      }
+    }`;
+  };
+
   beforeEach(async () => {
     mongod = new MongoMemoryServer();
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -78,8 +97,8 @@ describe('AppController (e2e)', () => {
     await mongod.stop();
   });
 
-  it('should create a user', () => {
-    return request(app.getHttpServer())
+  it('should create a user', async () => {
+    return await request(app.getHttpServer())
       .post('/graphql')
       .send({
         query: createUserQuery(),
@@ -92,8 +111,8 @@ describe('AppController (e2e)', () => {
       .expect(200);
   });
 
-  it('should get a user', () => {
-    return request(app.getHttpServer())
+  it('should get a user', async () => {
+    return await request(app.getHttpServer())
       .post('/graphql')
       .send({
         query: getUserQuery(),
@@ -108,11 +127,12 @@ describe('AppController (e2e)', () => {
     await request(app.getHttpServer()).post('/graphql').send({
       query: createUserQuery(),
     });
+    userObject.email += '_';
     await request(app.getHttpServer()).post('/graphql').send({
       query: createUserQuery(),
     });
 
-    return request(app.getHttpServer())
+    return await request(app.getHttpServer())
       .post('/graphql')
       .send({
         query: getUserQuery(),
@@ -131,13 +151,42 @@ describe('AppController (e2e)', () => {
     const { _id, name } = result.body.data.createUser;
     const newName = name + '_new_name';
 
-    return request(app.getHttpServer())
+    return await request(app.getHttpServer())
       .post('/graphql')
       .send({
         query: updateUserQuery(_id, newName),
       })
       .expect(({ body }) => {
         expect(newName).toBe(body.data.updateUser.name);
+      })
+      .expect(200);
+  });
+
+  it('should login and authorize token', async () => {
+    await request(app.getHttpServer()).post('/graphql').send({
+      query: createUserQuery(),
+    });
+
+    const loginBody = await request(app.getHttpServer())
+      .post('/graphql')
+      .send({
+        query: loginQuery(),
+      })
+      .expect(200);
+
+    const token = loginBody.body.data.login.token;
+
+    expect(typeof token).toBe('string');
+    expect(token.length).toBeGreaterThan(0);
+
+    return await request(app.getHttpServer())
+      .post('/graphql')
+      .set({ authorization: `Bearer ${token}` })
+      .send({
+        query: authorizeQuery(),
+      })
+      .expect(({ body }) => {
+        expect(body.data.me.email).toBe(userObject.email);
       })
       .expect(200);
   });
